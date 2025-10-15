@@ -44,11 +44,9 @@ public class Product {
     @CreatedDate
     private String createdAt; // DATETIME
 
-    @Column(nullable = false)
     @ManyToOne(fetch = FetchType.LAZY)
     //Cascade 안하는 이유 : User 삭제시 Product도 삭제되면 안됨
     @JoinColumn(name = "user_id", nullable = false)
-
     private User user;
 
     @Column(nullable = false)
@@ -63,7 +61,6 @@ public class Product {
     @Column(nullable = false)
     private Integer likeCount;
 
-    @Column
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "design_id", nullable = false)
     //Cascade 안하는 이유 : Design 삭제시 Product도 삭제되면 안됨
