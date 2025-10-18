@@ -11,6 +11,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -23,6 +24,7 @@ import java.util.UUID;
 public class Product {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long productId;
 
     @Column(nullable = false, length = 30)
@@ -31,8 +33,10 @@ public class Product {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false, columnDefinition = "ENUM('TOP', 'BOTTOM', 'OUTER', 'BAG', 'ETC')")
-    private String productCategory; // 'TOP', 'BOTTOM', 'OUTER', 'BAG', 'ETC'
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ProductCategory productCategory; // 'TOP', 'BOTTOM', 'OUTER', 'BAG', 'ETC'
 
     @Column(nullable = false)
     private String sizeInfo;
@@ -42,7 +46,7 @@ public class Product {
 
     @Column(nullable = false)
     @CreatedDate
-    private String createdAt; // DATETIME
+    private LocalDateTime createdAt; // DATETIME
 
     @ManyToOne(fetch = FetchType.LAZY)
     //Cascade 안하는 이유 : User 삭제시 Product도 삭제되면 안됨
@@ -68,6 +72,19 @@ public class Product {
 
     @Column
     private Double avgReviewRating; // DECIMAL(3,2)
+
+    //상품 수정하는 로직 추가
+    public void update(String description, ProductCategory productCategory, String sizeInfo, Integer stockQuantity) {
+        this.description = description;
+        this.productCategory = productCategory;
+        this.sizeInfo = sizeInfo;
+        this.stockQuantity = stockQuantity;
+    }
+
+    //소프트 딜리트 로직 추가
+    public void softDelete() {
+        this.isDeleted = true;
+    }
 }
 
 
