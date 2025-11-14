@@ -1,0 +1,173 @@
+package com.mysite.knitly.global.email.service;
+
+import com.mysite.knitly.domain.order.dto.EmailNotificationDto;
+import com.mysite.knitly.domain.order.entity.Order;
+import com.mysite.knitly.domain.order.entity.OrderItem;
+import com.mysite.knitly.domain.order.repository.OrderRepository;
+import com.mysite.knitly.domain.payment.entity.Payment;
+import com.mysite.knitly.domain.payment.repository.PaymentRepository;
+import com.mysite.knitly.global.util.FileStorageService;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class EmailService {
+
+    private final JavaMailSender javaMailSender;
+    private final OrderRepository orderRepository;
+    private final FileStorageService fileStorageService;
+    private final PaymentRepository paymentRepository;
+
+    public void sendOrderConfirmationEmail(EmailNotificationDto emailDto) {
+        log.info("[EmailService] [Send] 이메일 발송 처리 시작 - to={}", emailDto.userEmail());
+
+        Order order = orderRepository.findById(emailDto.orderId())
+                .orElseThrow(() -> {
+                    log.error("[EmailService] [Send] DB에서 Order 엔티티 조회 실패. orderId={}", emailDto.orderId());
+                    return new IllegalArgumentException("Order not found: " + emailDto.orderId());
+                });
+        log.debug("[EmailService] [Send] DB에서 Order 엔티티 조회 완료");
+
+        MimeMessage mimeMessage = javaMailSender.createMimeMessage();
+
+        try {
+            MimeMessageHelper mimeMessageHelper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            mimeMessageHelper.setTo(emailDto.userEmail());
+            mimeMessageHelper.setSubject("[Knitly] 주문하신 도안이 도착했습니다.");
+
+            Payment payment = paymentRepository.findByOrder_OrderId(order.getOrderId())
+                    .orElse(null);
+
+            String paymentMethod = (payment != null)
+                    ? switch (payment.getPaymentMethod()) {
+                case CARD -> "카드 결제";
+                case VIRTUAL_ACCOUNT -> "가상계좌";
+                case EASY_PAY -> " 간편결제";
+            }
+                    : "결제수단 정보 없음";
+
+            String orderItemsHtml = order.getOrderItems().stream()
+                    .map(item -> """
+            <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:10px 15px;">%s</td>
+                <td style="padding:10px 15px;text-align:right;">₩%,.0f</td>
+                <td style="padding:10px 15px;text-align:center;">%d개</td>
+            </tr>
+            """.formatted(
+                            item.getProduct().getTitle(),
+                            item.getOrderPrice(),
+                            item.getQuantity()
+                    )).collect(Collectors.joining("\n"));
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm:ss")
+                    .withZone(ZoneId.of("Asia/Seoul"));
+            String formattedDate = order.getCreatedAt() != null
+                    ? formatter.format(order.getCreatedAt())
+                    : "주문 시각 정보 없음";
+
+            String emailContent = """
+            <div style="font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+                        width:90%%;max-width:640px;margin:0 auto;background:#fafafa;
+                        border-radius:14px;border:1px solid #e0e0e0;padding:40px 30px;">
+                
+                <h2 style="font-size:22px;font-weight:700;color:#333;margin-bottom:10px;">
+                    %s님, 주문해주셔서 감사합니다 💐
+                </h2>
+                <p style="font-size:15px;color:#555;line-height:1.6;">
+                    Knitly에서의 주문이 정상적으로 완료되었습니다.<br>
+                    주문하신 도안은 첨부된 파일로 함께 발송됩니다.
+                </p>
+            
+                <div style="background:#fff;border:1px solid #eee;border-radius:10px;padding:20px;margin-top:20px;">
+                    <table style="width:100%%;font-size:15px;border-collapse:collapse;">
+                        <tr><td style="color:#888;">주문 번호</td><td style="text-align:right;font-weight:bold;">#%d</td></tr>
+                        <tr><td style="color:#888;">주문 시각</td><td style="text-align:right;">%s</td></tr>
+                        <tr><td style="color:#888;">결제 수단</td><td style="text-align:right;">%s</td></tr>
+                        <tr><td style="color:#888;">주문자</td><td style="text-align:right;">%s</td></tr>
+                    </table>
+                </div>
+            
+                <div style="margin-top:30px;background:#fff;border:1px solid #eee;border-radius:10px;">
+                    <h3 style="padding:15px 20px;border-bottom:1px solid #eee;font-size:16px;color:#333;margin:0;">
+                        🧶 주문 내역
+                    </h3>
+                    <table style="width:100%%;border-collapse:collapse;font-size:14px;">
+                        <thead>
+                            <tr style="background:#f9f9f9;">
+                                <th style="text-align:left;padding:10px 15px;">상품명</th>
+                                <th style="text-align:right;padding:10px 15px;">가격</th>
+                                <th style="text-align:center;padding:10px 15px;">수량</th>
+                            </tr>
+                        </thead>
+                        <tbody>%s</tbody>
+                    </table>
+                    <div style="text-align:right;padding:20px;font-weight:bold;color:#333;border-top:1px solid #eee;">
+                        총 결제 금액: ₩%,.0f
+                    </div>
+                </div>
+            
+                <div style="text-align:center;margin-top:40px;">
+                    <a href="http://localhost:3000" target="_blank"
+                       style="display:inline-block;background:#333;color:#fff;
+                              text-decoration:none;padding:12px 24px;border-radius:6px;
+                              font-size:15px;font-weight:500;">
+                        Knitly 홈페이지로 가기
+                    </a>
+                </div>
+            
+                <p style="margin-top:40px;font-size:12px;color:#aaa;text-align:center;">
+                    © 2025 Knitly. All rights reserved.
+                </p>
+            </div>
+            """.formatted(
+                    order.getUser().getName(),
+                    order.getOrderId(),
+                    formattedDate,
+                    paymentMethod,
+                    order.getUser().getName(),
+                    orderItemsHtml,
+                    order.getTotalPrice()
+            );
+
+
+            mimeMessageHelper.setText(emailContent, true); // true: HTML
+
+            log.debug("[EmailService] [Send] 이메일 본문(Text Block) 생성 완료");
+
+            // 3. 주문된 모든 상품의 PDF를 첨부 (기존 로직 동일)
+            for (OrderItem item : order.getOrderItems()) {
+                String pdfUrl = item.getProduct().getDesign().getPdfUrl();
+                log.debug("[EmailService] [Send] PDF 첨부파일 로드 시도 - url={}", pdfUrl);
+                try {
+                    byte[] pdfBytes = fileStorageService.loadFileAsBytes(pdfUrl);
+                    mimeMessageHelper.addAttachment(item.getProduct().getTitle() + ".pdf", new ByteArrayResource(pdfBytes));
+                } catch (IOException e) {
+                    log.error("[EmailService] [Send] PDF 파일 첨부 실패. 작업 롤백/재시도. url={}", pdfUrl, e);
+                    throw new RuntimeException("PDF 파일 로드 실패: " + pdfUrl, e);
+                }
+            }
+            log.debug("[EmailService] [Send] 모든 PDF 첨부 완료");
+
+            // 4. 이메일 발송 (기존 로직 동일)
+            javaMailSender.send(mimeMessage);
+            log.info("[EmailService] [Send] 이메일 발송 API 호출 성공 - to={}", emailDto.userEmail());
+
+        } catch (MessagingException e) {
+            log.error("[EmailService] [Send] MimeMessage 생성 또는 Gmail 발송 실패. 작업 롤백/재시도.", e);
+            throw new RuntimeException("MimeMessage 생성 또는 발송에 실패했습니다.", e);
+        }
+    }
+}

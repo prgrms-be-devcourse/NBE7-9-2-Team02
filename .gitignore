@@ -35,3 +35,19 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### db ###
+*.mv.db
+*.trace.db
+*.sql
+
+### env ###
+/backend/.env.properties
+# env files (all environments)
+.env
+backend/.env.properties
+*.env
+.env.*
+
+### etc ###
+resources/static/.DS_Store

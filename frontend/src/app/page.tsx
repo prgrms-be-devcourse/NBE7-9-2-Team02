@@ -1,0 +1,296 @@
+// path: frontend/src/app/page.tsx
+'use client';
+
+import { useEffect, useState } from 'react';
+import { getHomeSummary } from '@/lib/api/home.api';
+import { ProductListResponse } from '@/types/product.types';
+import { LatestReviewItem, LatestPostItem } from '@/types/home.types';
+import ProductCard from '@/components/product/ProductCard';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuthStore } from '@/lib/store/authStore';
+import { User } from '@/types/auth.types';
+import { addLike, removeFavorite } from '@/lib/api/like.api';
+
+export default function HomePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, login } = useAuthStore();
+  const [isProcessingLogin, setIsProcessingLogin] = useState(false);
+  const [popularProducts, setPopularProducts] = useState<ProductListResponse[]>([]);
+  const [latestReviews, setLatestReviews] = useState<LatestReviewItem[]>([]);
+  const [latestPosts, setLatestPosts] = useState<LatestPostItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchHomeData();
+  }, []);
+
+  const fetchHomeData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await getHomeSummary();
+      setPopularProducts(data.popularProducts);
+      setLatestReviews(data.latestReviews);
+      setLatestPosts(data.latestPosts);
+    } catch (err: any) {
+      console.error('홈 화면 데이터 조회 실패:', err);
+      setError('데이터를 불러오는데 실패했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLikeToggle = async (productId: number) => {
+    const product = popularProducts.find(p => p.productId === productId);
+    if (!product) return;
+
+    const { user } = useAuthStore.getState();
+    if (!user) {
+      alert('로그인이 필요합니다.');
+      router.push('/login');
+      return;
+    }
+
+    const currentIsLiked = product.isLikedByUser;
+
+    // 2. 낙관적 업데이트 (UI 먼저 변경)
+    // 
+    // `popularProducts` state를 업데이트합니다.
+    setPopularProducts(prev => prev.map(p => 
+      p.productId === productId 
+        ? { 
+            ...p, 
+            // 찜 상태와 카운트를 모두 토글
+            isLikedByUser: !currentIsLiked, 
+            likeCount: currentIsLiked ? p.likeCount - 1 : p.likeCount + 1
+          }
+        : p
+    ));
+
+    try {
+      // 3. 상태에 따라 다른 API 호출
+      if (currentIsLiked) {
+        await removeFavorite(productId); // 찜 취소
+      } else {
+        await addLike(productId); // 찜 등록
+      }
+    } catch (error) {
+      console.error('찜 토글 실패:', error);
+      // 4. 실패 시 롤백 (원래 product 상태로 복구)
+      setPopularProducts(prev => prev.map(p => 
+        p.productId === productId ? product : p
+      ));
+      alert('찜 상태 변경에 실패했습니다.');
+    }
+  };
+
+  const getCategoryKorean = (category: string) => {
+    const categoryMap: { [key: string]: string } = {
+      QUESTION: '질문',
+      SHARE: '공유',
+      FREE: '자유',
+      REVIEW: '후기',
+      TIP: 'TIP',
+    };
+    return categoryMap[category] || category;
+  };
+
+  // OAuth2 로그인 성공 처리
+  useEffect(() => {
+    const accessToken = searchParams.get('accessToken');
+    const userId = searchParams.get('userId');
+    const email = searchParams.get('email');
+    const name = searchParams.get('name');
+    const loginError = searchParams.get('loginError');
+
+    if (loginError) {
+      alert('로그인에 실패했습니다. 다시 시도해주세요.');
+      router.replace('/');
+      return;
+    }
+
+    if (accessToken && userId && email && name) {
+      setIsProcessingLogin(true);
+
+      const userData: User = {
+        userId,
+        email: decodeURIComponent(email),
+        name: decodeURIComponent(name),
+        provider: 'GOOGLE',
+      };
+
+      login(accessToken, userData);
+      router.replace('/');
+
+      setTimeout(() => {
+        setIsProcessingLogin(false);
+        alert(`환영합니다, ${userData.name}님!`);
+      }, 300);
+    }
+  }, [searchParams, router, login]);
+
+  if (isProcessingLogin) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#925C4C] mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-700">로그인 처리 중...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#925C4C]"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* 인기 상품 섹션 */}
+      <section className="mb-16">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">인기 상품 랭킹 TOP 5</h2>
+          <button
+            onClick={() => router.push('/product')}
+            className="text-sm text-gray-600 hover:text-[#925C4C] transition-colors"
+          >
+            더보기 →
+          </button>
+        </div>
+
+        {popularProducts.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <p>인기 상품이 없습니다.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-5 gap-4">
+            {popularProducts.map((product, index) => (
+              <div key={product.productId} className="relative">
+                <div className="absolute top-2 left-2 z-10">
+                  <span className="bg-[#925C4C] text-white text-sm font-bold px-3 py-1 rounded-full shadow-md">
+                    #{index + 1}
+                  </span>
+                </div>
+                <ProductCard product={product} onLikeToggle={handleLikeToggle} />
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 최신 리뷰 섹션 */}
+      <section className="mb-16">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">최신 리뷰</h2>
+        </div>
+
+        {latestReviews.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <p>최신 리뷰가 없습니다.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {latestReviews.map((review) => (
+              <div
+                key={review.reviewId}
+                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center mb-3">
+                  <div className="flex text-yellow-400">
+                    {[...Array(5)].map((_, i) => (
+                      <svg
+                        key={i}
+                        className={`w-5 h-5 ${i < review.rating ? 'fill-current' : 'fill-gray-200'}`}
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                  </div>
+                  <span className="ml-2 text-sm text-gray-600">{review.rating}.0</span>
+                </div>
+
+                <p className="text-gray-700 mb-3 line-clamp-3">{review.content}</p>
+
+                <div className="pt-3 border-t border-gray-100">
+                  <p className="text-sm text-gray-600 line-clamp-1">{review.productTitle}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {new Date(review.createdDate).toLocaleDateString('ko-KR')}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 커뮤니티 글 섹션 */}
+      <section className="mb-16">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">커뮤니티 최신 글</h2>
+          {/* 더보기 → 커뮤니티 전체 목록으로 이동 */}
+          <button
+            onClick={() => router.push('/community')}
+            className="text-sm text-gray-600 hover:text-[#925C4C] transition-colors"
+          >
+            더보기 →
+          </button>
+        </div>
+
+        {latestPosts.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <p>최신 글이 없습니다.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {latestPosts.map((post) => (
+              // 카드 전체 클릭 → 해당 게시글 상세로 이동
+              <div
+                key={post.postId}
+                role="button"
+                tabIndex={0}
+                onClick={() => router.push(`/community/posts/${post.postId}`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    router.push(`/community/posts/${post.postId}`);
+                  }
+                }}
+                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#925C4C]"
+              >
+                <div className="mb-3">
+                  <span className="inline-block bg-[#925C4C] text-white text-xs font-medium px-3 py-1 rounded-full">
+                    {getCategoryKorean(post.category)}
+                  </span>
+                </div>
+
+                <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                  {post.title}
+                </h3>
+
+                <p className="text-sm text-gray-500">
+                  {new Date(post.createdAt).toLocaleDateString('ko-KR')}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
