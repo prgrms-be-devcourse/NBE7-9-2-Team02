@@ -29,12 +29,12 @@ public class UserService {
         return userRepository.findBySocialIdAndProvider(socialId, Provider.GOOGLE)
                 .orElseGet(() -> {
                     // 2. 신규 사용자면 회원가입
-                    log.info("신규 Google 사용자 가입: email={}, name={}", email, name);
+                    log.info("[OAuth]: 신규 Google 사용자 가입: email={}, name={}", email, name);
 
                     User newUser = User.createGoogleUser(socialId, email, name);
                     User savedUser = userRepository.save(newUser);
 
-                    log.info("회원가입 완료: userId={}", savedUser.getUserId());
+                    log.info("[OAuth]: 회원가입 완료: userId={}", savedUser.getUserId());
                     return savedUser;
                 });
     }
@@ -47,7 +47,7 @@ public class UserService {
                     new UserStore(user,"안녕하세요! 제 스토어에 오신 것을 환영합니다.")
             );
         } else {
-            log.info("기존 스토어 존재: userId={}", user.getUserId());
+            log.info("[OAuth]: 기존 스토어 존재: userId={}", user.getUserId());
         }
     }
 
@@ -56,7 +56,7 @@ public class UserService {
      */
     public User findById(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
+                .orElseThrow(() -> new IllegalArgumentException("[OAuth]: 사용자를 찾을 수 없습니다: " + userId));
     }
 
     /**
@@ -66,7 +66,7 @@ public class UserService {
     public void deleteUser(Long userId) {
         User user = findById(userId);
         userRepository.delete(user);
-        log.info("회원탈퇴 완료 - userId: {}, email: {}", userId, user.getEmail());
+        log.info("[OAuth]: 회원탈퇴 완료 - userId: {}, email: {}", userId, user.getEmail());
     }
 
 }

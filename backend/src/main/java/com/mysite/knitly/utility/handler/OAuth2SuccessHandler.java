@@ -56,10 +56,10 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         // 2. 사용자 정보 추출
         OAuth2UserInfo userInfo = OAuth2UserInfo.of("google", attributes);
 
-        log.info("=== OAuth2 Login Success ===");
-        log.info("Email: {}", userInfo.getEmail());
-        log.info("Name: {}", userInfo.getName());
-        log.info("Provider ID: {}", userInfo.getProviderId());
+        log.info("[OAuth2] === OAuth2 Login Success ===");
+        log.info("[OAuth2] Email: {}", userInfo.getEmail());
+        log.info("[OAuth2] Name: {}", userInfo.getName());
+        log.info("[OAuth2] Provider ID: {}", userInfo.getProviderId());
 
         // 3. 사용자 저장 또는 조회
         User user = userService.processGoogleUser(
@@ -68,7 +68,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 userInfo.getName()
         );
 
-        log.info("User processed - userId: {}", user.getUserId());
+        log.info("[OAuth2] User processed - userId: {}", user.getUserId());
 
         // 스토어 중복 생성 방지
         userService.ensureUserStore(user);
@@ -76,14 +76,14 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         // 4. JWT 토큰 발급
         TokenResponse tokens = jwtProvider.createTokens(user.getUserId());
 
-        log.info("=== JWT Tokens Created ===");
-        log.info("Access Token: {}", tokens.getAccessToken());
-        log.info("Refresh Token: {}", tokens.getRefreshToken());
-        log.info("Expires In: {} seconds", tokens.getExpiresIn());
+        log.info("[OAuth2] === JWT Tokens Created ===");
+        log.info("[OAuth2] Access Token: {}", tokens.getAccessToken());
+        log.info("[OAuth2] Refresh Token: {}", tokens.getRefreshToken());
+        log.info("[OAuth2] Expires In: {} seconds", tokens.getExpiresIn());
 
         // 5. Refresh Token을 Redis에 저장
         refreshTokenService.saveRefreshToken(user.getUserId(), tokens.getRefreshToken());
-        log.info("Refresh Token saved to Redis");
+        log.info("[OAuth2] Refresh Token saved to Redis");
 
         // 6. Refresh Token을 HTTP-only 쿠키에 저장
         cookieUtil.addCookie(
@@ -92,7 +92,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 tokens.getRefreshToken(),
                 refreshTokenExpireSeconds
         );
-        log.info("Refresh Token saved to HTTP-only cookie");
+        log.info("[OAuth2] Refresh Token saved to HTTP-only cookie");
 
 //        // 7. 임시 리다이렉트 (테스트용) - Access Token만 URL로 전달
 //        String targetUrl = String.format(
@@ -114,7 +114,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 tokens.getAccessToken()
         );
 
-        log.info("Redirecting to: {}", targetUrl);
+        log.info("[OAuth2] Redirecting to: {}", targetUrl);
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
 }

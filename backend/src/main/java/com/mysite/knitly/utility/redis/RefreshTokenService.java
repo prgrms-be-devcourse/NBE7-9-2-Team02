@@ -34,8 +34,8 @@ public class RefreshTokenService {
                 TimeUnit.SECONDS
         );
 
-        log.info("==> Refresh Token saved to Redis - userId: {}", userId);
-        log.info("==> Refresh Token saved to Redis - refreshToken: {}", refreshToken);
+        log.info("[Auth] [RT] [Redis]: Refresh Token saved to Redis - userId: {}", userId);
+        log.info("[Auth] [RT] [Redis]: Refresh Token saved to Redis - refreshToken: {}", refreshToken);
     }
 
     /**
@@ -46,7 +46,7 @@ public class RefreshTokenService {
         String refreshToken = redisTemplate.opsForValue().get(key);
 
         if (refreshToken == null) {
-            log.warn("Refresh Token not found in Redis - userId: {}", userId);
+            log.warn("[Auth] [RT] [Redis]: Refresh Token not found in Redis - userId: {}", userId);
         }
 
         return refreshToken;
@@ -60,14 +60,14 @@ public class RefreshTokenService {
         String storedToken = getRefreshToken(userId);
 
         if (storedToken == null) {
-            log.warn("No stored refresh token for userId: {}", userId);
+            log.warn("[Auth] [RT] [Redis]: No stored refresh token for userId: {}", userId);
             return false;
         }
 
         boolean isValid = storedToken.equals(refreshToken);
 
         if (!isValid) {
-            log.warn("Refresh token mismatch for userId: {}", userId);
+            log.warn("[Auth] [RT] [Redis]: Refresh token mismatch for userId: {}", userId);
         }
 
         return isValid;
@@ -81,9 +81,9 @@ public class RefreshTokenService {
         Boolean deleted = redisTemplate.delete(key);
 
         if (Boolean.TRUE.equals(deleted)) {
-            log.info("Refresh Token deleted from Redis - userId: {}", userId);
+            log.info("[Auth] [RT] [Redis]: Refresh Token deleted from Redis - userId: {}", userId);
         } else {
-            log.warn("Refresh Token not found for deletion - userId: {}", userId);
+            log.warn("[Auth] [RT] [Redis]: Refresh Token not found for deletion - userId: {}", userId);
         }
     }
 

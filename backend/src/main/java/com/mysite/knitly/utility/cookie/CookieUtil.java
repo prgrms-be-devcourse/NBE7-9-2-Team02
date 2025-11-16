@@ -35,14 +35,14 @@ public class CookieUtil {
         // 프로덕션에서는 true로 변경 필요
         cookie.setSecure(false);
 
-        // TODO : 지금은 알아만 둘 것 (지금 중요한 내용은 아님)
+        // 지금은 알아만 둘 것 (지금 중요한 내용은 아님)
         // 안전한 요청에만 쿠키 전송 (개발 환경 권장)
         // None: 모든 크로스 도메인 요청에 쿠키 전송 (Secure=true 필수)
         // 참고: Cookie 객체는 SameSite를 직접 지원하지 않으므로
         // ResponseCookie를 사용하거나 Set-Cookie 헤더를 직접 작성해야 함
         // 예시)
 
-        log.debug("Cookie created - name: {}, maxAge: {} seconds", name, maxAge);
+        log.debug("[Auth] [Cookie]: 쿠키가 생성되었습니다 - name: {}, maxAge: {} seconds", name, maxAge);
         return cookie;
     }
 
@@ -57,7 +57,7 @@ public class CookieUtil {
     public void addCookie(HttpServletResponse response, String name, String value, int maxAge) {
         Cookie cookie = createCookie(name, value, maxAge);
         response.addCookie(cookie);
-        log.info("Cookie added to response - name: {}", name);
+        log.info("[Auth] [Cookie]: 응답에 HTTP-only 쿠키가 추가되었습니다 - name: {}", name);
     }
 
     /**
@@ -71,7 +71,7 @@ public class CookieUtil {
         Cookie[] cookies = request.getCookies();
 
         if (cookies == null) {
-            log.debug("No cookies found in request");
+            log.debug("[Auth] [cookie]: 요청에 쿠키 값이 없습니다");
             return Optional.empty();
         }
 
@@ -95,6 +95,6 @@ public class CookieUtil {
         cookie.setSecure(false);
 
         response.addCookie(cookie);
-        log.info("Cookie deleted - name: {}", name);
+        log.info("[Auth] [Cookie]: 쿠키 삭제 - {}", name);
     }
 }

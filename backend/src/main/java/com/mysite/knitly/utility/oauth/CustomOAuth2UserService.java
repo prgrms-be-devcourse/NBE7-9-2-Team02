@@ -28,9 +28,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         OAuth2UserInfo userInfo = OAuth2UserInfo.of(registrationId, attributes);
 
         // 로그로 확인
-        log.info("OAuth2 Login - Provider: {}", registrationId);
-        log.info("OAuth2 Login - Email: {}", userInfo.getEmail());
-        log.info("OAuth2 Login - Name: {}", userInfo.getName());
+        log.info("[OAuth2] [Login] - Provider: {}", registrationId);
+        log.info("[OAuth2] [Login] - Email: {}", userInfo.getEmail());
+        log.info("[OAuth2] [Login] - Name: {}", userInfo.getName());
 
         // 4. OAuth2User 반환 (다음 단계 SuccessHandler로 전달됨)
         return oAuth2User;

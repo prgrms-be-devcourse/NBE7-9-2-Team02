@@ -72,7 +72,7 @@ public class AuthController {
             HttpServletRequest request,
             HttpServletResponse response) {
 
-        log.info("Token refresh API called");
+        log.info("[Auth]: 토큰 갱신 API 호출");
 
         // 1. 쿠키에서 Refresh Token 가져오기
         String refreshToken = cookieUtil.getCookie(request, REFRESH_TOKEN_COOKIE_NAME)
@@ -80,22 +80,22 @@ public class AuthController {
 
         // AuthController.java
         if (refreshToken == null) {
-            log.error("Refresh Token not found in cookie");
+            log.error("[Auth] [Refresh Token]: 쿠키에서 RT가 발견되지 않았습니다");
             return ResponseEntity.badRequest().build();
         }
 
         String tokenPreview = refreshToken.length() >= 20
                 ? refreshToken.substring(0, 20)
                 : refreshToken;
-        log.debug("Refresh Token found in cookie: {}...", tokenPreview);
+        log.debug("[Auth] [Refresh Token]: 쿠키에서 RT가 발견되었습니다 - {}...", tokenPreview);
 
         try {
             // 2. 새로운 토큰 발급
             TokenRefreshResponse tokenResponse = authService.refreshAccessToken(refreshToken);
 
-            log.info("New tokens created successfully");
-            log.debug("New Access Token: {}", tokenResponse.getAccessToken());
-            log.debug("New Refresh Token: {}", tokenResponse.getRefreshToken());
+            log.info("[Auth] [Token Refresh]: 새로운 토큰이 발급되었습니다");
+            log.debug("[Auth] [Access Token]: 신규 토큰: {}", tokenResponse.getAccessToken());
+            log.debug("[Auth] [Refresh Token]: 신규 토큰: {}", tokenResponse.getRefreshToken());
 
             // 3. 새로운 Refresh Token을 쿠키에 저장
             cookieUtil.addCookie(
@@ -105,16 +105,16 @@ public class AuthController {
                     refreshTokenExpireSeconds
             );
 
-            log.info("New Refresh Token saved to cookie");
+            log.info("[Auth] [Refresh Token]: 새로운 RT가 쿠키에 저장되었습니다");
 
             return ResponseEntity.ok(tokenResponse);
 
         } catch (IllegalArgumentException e) {
-            log.error("Token refresh failed: {}", e.getMessage());
+            log.error("[Auth]: 토큰 갱신 실패 {}", e.getMessage());
 
             // 실패 시 쿠키 삭제
             cookieUtil.deleteCookie(response, REFRESH_TOKEN_COOKIE_NAME);
-            log.info("Invalid Refresh Token removed from cookie");
+            log.info("[Auth]: 유효하지 않은 RT가 쿠키에서 제거되었습니다");
 
             return ResponseEntity.status(401).build();
         }

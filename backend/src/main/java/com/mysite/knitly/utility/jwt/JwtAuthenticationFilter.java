@@ -35,10 +35,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 1. 요청 헤더에서 JWT 토큰 추출
             String token = extractTokenFromRequest(request);
 
-            log.info("===> JWT Filter: token = {}", token != null ? "EXISTS" : "NULL");
+            log.info("[Auth] [JWT Filter]: token = {}", token != null ? "EXISTS" : "NULL");
 
             if (token != null && jwtProvider.validateToken(token)) {
-                log.info("===> JWT Valid!");
+                log.info("[Auth] [JWT]: JWT Valid!");
                 // 2. 토큰에서 userId 추출
                 Long userId = jwtProvider.getUserIdFromToken(token);
 
@@ -60,13 +60,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // 5. SecurityContext에 인증 정보 저장
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                log.debug("JWT authenticated - userId: {}", userId);
+                log.debug("[Auth] [JWT]: JWT authenticated - userId: {}", userId);
             } else {
-                log.warn("===> JWT Invalid or null!");
+                log.warn("[Auth] [JWT]: JWT Invalid or null!");
             }
 
         } catch (Exception e) {
-            log.error("JWT authentication failed: {}", e.getMessage());
+            log.error("[Auth] [JWT]: JWT authentication failed: {}", e.getMessage());
             // 인증 실패해도 다음 필터로 진행 (Spring Security가 처리)
         }
 
